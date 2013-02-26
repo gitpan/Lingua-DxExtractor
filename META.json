@@ -1,5 +1,5 @@
 {
-   "abstract" : "Perl extension to perform named entity recognition and some degree of looking for negation in a quick and dirty way relying on StanfordCoreNLP. ",
+   "abstract" : "Perl extension to perform NER and quick and dirty checking for negation relying on StanfordCoreNLP. ",
    "author" : [
       "root <root@localdomain>"
    ],
@@ -31,9 +31,13 @@
          }
       },
       "runtime" : {
-         "requires" : {}
+         "requires" : {
+            "Class::MakeMethods" : "1",
+            "Inline::Java" : "0.053",
+            "Lingua::StanfordCoreNLP" : "0.04"
+         }
       }
    },
    "release_status" : "stable",
-   "version" : "0.01"
+   "version" : "0.02"
 }

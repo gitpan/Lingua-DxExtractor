@@ -3,4 +3,5 @@ Revision history for Perl extension Lingua::DxExtractor.
 0.01  Sun Feb 24 21:38:41 2013
 	- original version; created by h2xs 1.23 with options
 		-AX Lingua::DxExtractor
-
+0.02  Mon Feb 25 21:40 2013
+	- edited POD; added required modules to Makefile.PL; edited README; 

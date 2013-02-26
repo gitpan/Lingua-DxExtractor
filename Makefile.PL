@@ -5,7 +5,11 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'Lingua::DxExtractor',
     VERSION_FROM      => 'lib/Lingua/DxExtractor.pm', # finds $VERSION
-    PREREQ_PM         => {}, # e.g., Module::Name => 1.1
+    PREREQ_PM         => {
+	'Inline::Java' => 0.053,
+	'Class::MakeMethods' => 1,
+	'Lingua::StanfordCoreNLP' => 0.04,
+    }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Lingua/DxExtractor.pm', # retrieve abstract from module
        AUTHOR         => 'root <root@localdomain>') : ()),

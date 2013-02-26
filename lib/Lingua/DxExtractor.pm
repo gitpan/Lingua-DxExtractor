@@ -4,7 +4,7 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use Class::MakeMethods (
   'Standard::Global:object' => 'pipeline',
@@ -194,15 +194,15 @@ __END__
 
 =head1 NAME
 
-Lingua::DxExtractor - Perl extension to perform named entity recognition and some degree of looking for negation in a quick and dirty way relying on StanfordCoreNLP. 
+Lingua::DxExtractor - Perl extension to perform NER and quick and dirty checking for negation relying on StanfordCoreNLP. 
 
 =head1 SYNOPSIS
 
   use Lingua::DxExtractor;
 
   my $extractor = Lingua::DxExtractor->new( {
-    words => [  qw( embolus embolism pe clot thromboembolism defect ) ],
-    skip_words => [ qw( evaluate evaluation history indication technique assessment nondiagnostic uninterpretable ) ],
+    words => [  qw( embolus embolism pe clot ) ],
+    skip_words => [ qw( history indication technique nondiagnostic ) ],
   } );
 
   my $counter ;
@@ -215,10 +215,11 @@ Lingua::DxExtractor - Perl extension to perform named entity recognition and som
 
 =head1 DESCRIPTION
 
-A quick and dirty NER tool to be used to find diagnostic entities within clinical text. It also includes a simple attempt at finding negated terms. The extractor gives a 'final answer', 'absent' or 'present'. Also the extractor reports if it isn't sure and the answer is ambiguous. 
+A quick and dirty Named Entity Recognition tool to be used to find diagnostic entities within clinical text. It also includes a simple attempt at finding negated terms. The extractor gives a 'final answer', 'absent' or 'present'. Also the extractor reports if it isn't sure and the answer is ambiguous. 
 
 The 'use case' for this is when performing a research project with a large number of records and you need to identify a subset based on a diagnostic entity, you can use this tools to reduce the number of charts that have to be manually examined. In this 'use case' I wanted to keep the sensitivity as high as possible in order to not miss real cases.
 
+The extractor uses StanfordCoreNLP's lemmatization, POS tagging, and creation of dependencies. For a given text, sentences are looked at one by one. If one of the 'skip_words' is found then the sentence is skipped. If one of the target 'words' is found then the sentence is flagged for further examination, and the word is marked as 'present'. Each target sentence is examined for negation terms, and if so the word is marked as 'absent'. A 'final answer' for the presence of absence of the condition defined by the target 'words' is then evaluated by looking at all of the accumulated answers for all of the sentences. If there is conflict in the answer then the 'ambiguous' answer flag is marked. For these ambiguous cases, the final answer is whichever answer (absent or present) was most frequently found. In the case of a tie, the default answer is 'present' (this increases false positives but decreases false negatives -- improved sensitivity).  
 
 =head2 EXPORT
 
@@ -230,10 +231,11 @@ This module depends on:
 
 Lingua::StanfordCoreNLP which in turn depends on Inline::Java
 
+Class::MakeMethods
 
 =head1 AUTHOR
 
-Iturrate, E<lt>ed@iturrate.com<gt>
+Ed Iturrate, E<lt>ed@iturrate.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
