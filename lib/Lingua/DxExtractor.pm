@@ -4,19 +4,19 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use Class::MakeMethods (
   'Standard::Global:object' => 'pipeline',
 
+  'Template::Hash:array' => [
+        'words', 'skip_words'
+  ],
   'Template::Hash:scalar' => [
         'orig_text', 'final_answer', 'ambiguous',
   ],
   'Template::Hash:hash' => [
         'target_sentences',
-  ],
-  'Template::Hash:array' => [
-        'words', 'skip_words'
   ],
   'Template::Hash:object' => [
     {
@@ -32,7 +32,6 @@ Lingua::DxExtractor->pipeline( Lingua::StanfordCoreNLP::Pipeline->new );
 
 ######################################################################
 
-# $extractor = Lingua::DxExtractor->new( { words => $words, skip_words => $skip_words } );
 sub new {
   my $callee = shift;
   my $package = ref $callee || $callee;
@@ -44,12 +43,13 @@ sub new {
 
 sub process_text {
   my ($self,$text) = @_;
-  $self->orig_text( $text ) unless $self->orig_text;
-  my $results = $self->pipeline->process($text);
-  $self->results( $results );
+  $self->orig_text( $text );
+  $self->results( $self->pipeline->process($text) );
+  $self->examine_results;
+  return $self->finalize_answer;
 }
 
-sub examine_text {
+sub examine_results {
    my $self = shift;
    return unless my $results = $self->results;
 
@@ -75,9 +75,9 @@ sub examine_text {
      $self->target_sentences->{ $sentence->getIDString }->{pos} = $pos
         if $self->target_sentences->{ $sentence->getIDString }->{word};
 
-     # loop through dependencies
      next unless $self->target_sentences->{ $sentence->getIDString }->{word};
 
+     # loop through dependencies
      my $d;
      for my $dep (@{$sentence->getDependencies->toArray}) {
        $d .= sprintf "\t%s(%s-%d, %s-%d) [%s]\n",
@@ -134,15 +134,13 @@ sub examine_text {
    }
 }
 
-# my $debug_info = $extractor->finalize_results;
-sub finalize_results {
+# my $debug_info = $extractor->finalize_answer;
+sub finalize_answer {
   my $self = shift;
   my $out;
-  #$out = "TEXT: " . $self->orig_text . "\n";
 
-  my $final_answer;
+  my ($final_answer,$answers);
   my $ambiguous = 0;
-  my $answers;
 
   foreach my $sid ( keys %{$self->target_sentences} ) {
     next unless $self->target_sentences->{$sid}->{orig};
@@ -151,7 +149,7 @@ sub finalize_results {
     $out .= "POS: " . $self->target_sentences->{ $sid }->{pos} . "\n";
     $out .= "Dep: " . $self->target_sentences->{ $sid }->{dep} . "\n";
     foreach my $word ( keys %{ $self->target_sentences->{ $sid }->{word} }   ) {
-      $out .= "$word is " . $self->target_sentences->{ $sid }->{word}->{ $word } . "\n";
+      $out .= "Answer: $word is " . $self->target_sentences->{ $sid }->{word}->{ $word } . "\n";
 
       $ambiguous = 1 if $final_answer &&
         $final_answer ne $self->target_sentences->{ $sid }->{word}->{ $word };
@@ -176,10 +174,8 @@ sub finalize_results {
 
   $self->final_answer( $final_answer );
   $self->ambiguous( $ambiguous );
-
   return $out;
 }
-
 
 sub reset {
   my $self = shift;
@@ -188,28 +184,25 @@ sub reset {
   $self->target_sentences( {} );
 }
 
-
 1;
 __END__
 
 =head1 NAME
 
-Lingua::DxExtractor - Perl extension to perform NER and quick and dirty checking for negation relying on StanfordCoreNLP. 
+Lingua::DxExtractor - Perl extension to perform NER and quick and dirty negation checking using Lingua::StanfordCoreNLP. 
 
 =head1 SYNOPSIS
 
   use Lingua::DxExtractor;
 
-  my $extractor = Lingua::DxExtractor->new( {
+  $extractor = Lingua::DxExtractor->new( {
     words => [  qw( embolus embolism pe clot ) ],
     skip_words => [ qw( history indication technique nondiagnostic ) ],
   } );
 
-  my $counter ;
-  $extractor->process_text( $text );
-  $extractor->examine_text;
+  $text = 'Indication: To rule out pulmonary embolism.\nFindings: There is no evidence of vascular filling defect...\n";
 
-  $debug =  $extractor->finalize_results;
+  $debug = $extractor->process_text( $text );
   $absent_or_present = $extractor->final_answer;
   $is_final_answer_ambiguous = $extractor->ambiguous;
 
@@ -217,7 +210,7 @@ Lingua::DxExtractor - Perl extension to perform NER and quick and dirty checking
 
 A quick and dirty Named Entity Recognition tool to be used to find diagnostic entities within clinical text. It also includes a simple attempt at finding negated terms. The extractor gives a 'final answer', 'absent' or 'present'. Also the extractor reports if it isn't sure and the answer is ambiguous. 
 
-The 'use case' for this is when performing a research project with a large number of records and you need to identify a subset based on a diagnostic entity, you can use this tools to reduce the number of charts that have to be manually examined. In this 'use case' I wanted to keep the sensitivity as high as possible in order to not miss real cases.
+The 'use case' for this is when performing a research project with a large number of records and you need to identify a subset based on a diagnostic entity, you can use this tool to reduce the number of charts that have to be manually examined. In this 'use case' I wanted to keep the sensitivity as high as possible in order to not miss real cases.
 
 The extractor uses StanfordCoreNLP's lemmatization, POS tagging, and creation of dependencies. For a given text, sentences are looked at one by one. If one of the 'skip_words' is found then the sentence is skipped. If one of the target 'words' is found then the sentence is flagged for further examination, and the word is marked as 'present'. Each target sentence is examined for negation terms, and if so the word is marked as 'absent'. A 'final answer' for the presence of absence of the condition defined by the target 'words' is then evaluated by looking at all of the accumulated answers for all of the sentences. If there is conflict in the answer then the 'ambiguous' answer flag is marked. For these ambiguous cases, the final answer is whichever answer (absent or present) was most frequently found. In the case of a tie, the default answer is 'present' (this increases false positives but decreases false negatives -- improved sensitivity).  
 

@@ -1,7 +1,7 @@
 ---
-abstract: 'Perl extension to perform NER and quick and dirty checking for negation relying on StanfordCoreNLP. '
+abstract: 'Perl extension to perform NER and quick and dirty negation checking using Lingua::StanfordCoreNLP. '
 author:
-  - 'root <root@localdomain>'
+  - 'Eduardo Iturrate <ed@iturrate.com>'
 build_requires:
   ExtUtils::MakeMaker: 0
 configure_requires:
@@ -21,4 +21,4 @@ requires:
   Class::MakeMethods: 1
   Inline::Java: 0.053
   Lingua::StanfordCoreNLP: 0.04
-version: 0.02
+version: 0.03
