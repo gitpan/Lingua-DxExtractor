@@ -4,7 +4,7 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '1.0';
+our $VERSION = '1.01';
 
 use Text::Sentence qw( split_sentences );
 use Lingua::NegEx;
@@ -94,7 +94,6 @@ sub examine_text {
   }
 }
 
-
 sub debug {
   my $self = shift;
   my $out = "DxExtractor Debug:\n";
@@ -122,23 +121,29 @@ sub reset {
 
 =head1 NAME
 
-Lingua::DxExtractor - Perl extension to extract the presence or absence of a clinical condition from radiology reports. 
+Lingua::DxExtractor - Extract the presence or absence of a clinical condition from radiology reports. 
 
 =head1 SYNOPSIS
 
   use Lingua::DxExtractor;
 
   $extractor = Lingua::DxExtractor->new( {
-    target_words => [  qw( embolus embolism pe clot ) ],
+    target_words => [  qw( embolus embolism emboli defect pe clot clots ) ],
     skip_words => [ qw( history indication technique nondiagnostic ) ],
   } );
 
   $text = 'Indication: To rule out pulmonary embolism.\nFindings: There is no evidence of vascular filling defect...\n";
 
-  $debug = $extractor->process_text( $text );
-  $absent_or_present = $extractor->final_answer;
-  $is_final_answer_ambiguous = $extractor->ambiguous;
+  $final_answer = $extractor->process_text( $text ); # 'absent' or 'present'
+  $is_final_answer_ambiguous = $extractor->ambiguous; # 1 or 0
+  $debug = $extractor->debug;
 
+  $original_text = $extractor->orig_text;
+  $final_answer = $extractor->final_answer;
+
+  $extractor->reset; # start all over again
+
+  
 =head1 DESCRIPTION
 
 A tool to be used to look for the presence or absence of a clinical condition as reported in radiology reports. The extractor reports a 'final answer', 'absent' or 'present', as well as reports whether this answer is 'ambiguous' or not.
@@ -171,12 +176,17 @@ Text::Sentence
 
 Class::MakeMethods
 
+Also, see http://www.ncbi.nlm.nih.gov/pubmed/21459155 for a similar project.
+
 =head1 To Do
 
-Add lemmatization or stemming to target_words so you don't have to explicitly write out all forms of words 
+  Add lemmatization or stemming to target_words so you don't have to explicitly write out all forms of words.
+
+  Add ConText support.
+
 =head1 AUTHOR
 
-Eduardp Iturrate, E<lt>ed@iturrate.comE<gt>
+Eduardo Iturrate, E<lt>ed@iturrate.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 

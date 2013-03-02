@@ -1,5 +1,5 @@
 {
-   "abstract" : "Perl extension to extract the presence or absence of a clinical condition from radiology reports. ",
+   "abstract" : "Extract the presence or absence of a clinical condition from radiology reports. ",
    "author" : [
       "Eduardo Iturrate <ed@iturrate.com>"
    ],
@@ -39,5 +39,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "1.0"
+   "version" : "1.01"
 }
