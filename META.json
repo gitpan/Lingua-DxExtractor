@@ -1,5 +1,5 @@
 {
-   "abstract" : "Perl extension to perform NER and quick and dirty negation checking using Lingua::StanfordCoreNLP. ",
+   "abstract" : "Perl extension to extract the presence or absence of a clinical condition from radiology reports. ",
    "author" : [
       "Eduardo Iturrate <ed@iturrate.com>"
    ],
@@ -33,11 +33,11 @@
       "runtime" : {
          "requires" : {
             "Class::MakeMethods" : "1",
-            "Inline::Java" : "0.053",
-            "Lingua::StanfordCoreNLP" : "0.04"
+            "Lingua::NegEx" : "0.01",
+            "Text::Sentence" : "0.006"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.03"
+   "version" : "1.0"
 }

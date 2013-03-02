@@ -4,31 +4,22 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '1.0';
+
+use Text::Sentence qw( split_sentences );
+use Lingua::NegEx;
 
 use Class::MakeMethods (
-  'Standard::Global:object' => 'pipeline',
-
   'Template::Hash:array' => [
-        'words', 'skip_words'
+        'target_words', 'skip_words'
   ],
   'Template::Hash:scalar' => [
         'orig_text', 'final_answer', 'ambiguous',
   ],
   'Template::Hash:hash' => [
-        'target_sentences',
-  ],
-  'Template::Hash:object' => [
-    {
-        name=> 'results',
-        class=> 'Lingua::StanfordCoreNLP::PipelineSentenceList'
-    },
+        'target_sentence', 'negex_debug',
   ],
 );
-
-use Lingua::StanfordCoreNLP;
-Inline->init();
-Lingua::DxExtractor->pipeline( Lingua::StanfordCoreNLP::Pipeline->new );
 
 ######################################################################
 
@@ -37,166 +28,108 @@ sub new {
   my $package = ref $callee || $callee;
   my $self = shift;
   bless $self, $package;
-  die unless $self->words;
+  die unless $self->target_words;
   return $self;
 }
 
 sub process_text {
   my ($self,$text) = @_;
   $self->orig_text( $text );
-  $self->results( $self->pipeline->process($text) );
-  $self->examine_results;
-  return $self->finalize_answer;
+  $self->examine_text;
+  return $self->final_answer;
 }
 
-sub examine_results {
-   my $self = shift;
-   return unless my $results = $self->results;
-
-   for my $sentence ( @{$results->toArray} ) {
-     next if grep { $sentence->getSentence =~ /$_/i } @{$self->skip_words};
-
-     my ($no_determiner, $without, $negation_modifier, $word_holder );
-
-     # loop through POS tagged words
-     my $pos;
-     for my $token (@{$sentence->getTokens->toArray}) {
-       $pos .=  sprintf "\t%s/%s/%s [%s]\n",
-              $token->getWord,
-              $token->getPOSTag,
-              $token->getNERTag,
-              $token->getLemma;
-
-       if ( grep { $token->getLemma eq $_ } @{$self->words} ) {
-         $self->target_sentences->{ $sentence->getIDString }->{word}->{ $token->getLemma } = 'present';
-         $self->target_sentences->{ $sentence->getIDString }->{orig} = $sentence->getSentence;
-       }
-     }
-     $self->target_sentences->{ $sentence->getIDString }->{pos} = $pos
-        if $self->target_sentences->{ $sentence->getIDString }->{word};
-
-     next unless $self->target_sentences->{ $sentence->getIDString }->{word};
-
-     # loop through dependencies
-     my $d;
-     for my $dep (@{$sentence->getDependencies->toArray}) {
-       $d .= sprintf "\t%s(%s-%d, %s-%d) [%s]\n",
-          $dep->getRelation,
-          $dep->getGovernor->getWord,
-          $dep->getGovernorIndex,
-          $dep->getDependent->getWord,
-          $dep->getDependentIndex,
-          $dep->getLongRelation;
-
-       $word_holder->{ $dep->getGovernor->getLemma } ++;
-       $word_holder->{ $dep->getDependent->getLemma } ++;
-
-       if ( $no_determiner ) {
-         $no_determiner->{ $dep->getGovernor->getLemma } ++;
-         $no_determiner->{ $dep->getDependent->getLemma } ++;
-       }
-       if ( $without ) {
-         $without->{ $dep->getGovernor->getLemma } ++;
-         $without->{ $dep->getDependent->getLemma } ++;
-       }
-       if ( ($dep->getLongRelation eq 'determiner' || $dep->getLongRelation eq 'dependent') && $dep->getDependent->getLemma eq 'no' ) {
-         $no_determiner->{ $dep->getGovernor->getLemma } ++;
-       } elsif ( $dep->getRelation =~ /without/ ) {
-         $without->{ $dep->getGovernor->getLemma  } ++;
-         $without->{ $dep->getDependent->getLemma  } ++;
-       } elsif ( $dep->getLongRelation =~ /negation/ ) {
-         $negation_modifier++;
-       }
-
-     }
-     $self->target_sentences->{ $sentence->getIDString }->{dep} = $d;
-
-     if ( $no_determiner ) {
-       foreach my $term ( keys %$no_determiner ) {
-         next unless grep { $_ eq $term } @{$self->words};
-         $self->target_sentences->{ $sentence->getIDString }->{word}->{ $term } = 'absent';
-       }
-     }
-
-     if ( $without ) {
-       foreach my $term ( keys %$without ) {
-         next unless grep { $_ eq $term } @{$self->words};
-         $self->target_sentences->{ $sentence->getIDString }->{word}->{ $term } = 'absent';
-       }
-     }
-
-     if ( $negation_modifier ) {
-       foreach my $term ( keys %$word_holder ) {
-         next unless grep { $_ eq $term } @{$self->words};
-         $self->target_sentences->{ $sentence->getIDString }->{word}->{ $term } = 'absent';
-       }
-     }
-   }
-}
-
-# my $debug_info = $extractor->finalize_answer;
-sub finalize_answer {
+sub examine_text {
   my $self = shift;
-  my $out;
+  my @sentences = split_sentences( $self->orig_text );
+  foreach my $line ( @sentences ) {
+    next if grep { $line =~ /\b$_\b/i } @{$self->skip_words};
+    next unless grep { $line =~ /\b$_\b/i } @{$self->target_words};
 
-  my ($final_answer,$answers);
-  my $ambiguous = 0;
+    $self->target_sentence->{ $line } = 'present';
+    my $n_scope = negation_scope( $line );
+    $self->negex_debug->{ $line } = $n_scope;
 
-  foreach my $sid ( keys %{$self->target_sentences} ) {
-    next unless $self->target_sentences->{$sid}->{orig};
+    if ( $n_scope eq '-1' ) {
+      # affirmed
+      $self->target_sentence->{ $line } = 'present';
+    } elsif ( $n_scope eq '-2' ) {
+      # negated 
+      $self->target_sentence->{ $line } = 'absent';
 
-    $out .= "($sid)\n" . $self->target_sentences->{ $sid }->{orig} . "\n";
-    $out .= "POS: " . $self->target_sentences->{ $sid }->{pos} . "\n";
-    $out .= "Dep: " . $self->target_sentences->{ $sid }->{dep} . "\n";
-    foreach my $word ( keys %{ $self->target_sentences->{ $sid }->{word} }   ) {
-      $out .= "Answer: $word is " . $self->target_sentences->{ $sid }->{word}->{ $word } . "\n";
-
-      $ambiguous = 1 if $final_answer &&
-        $final_answer ne $self->target_sentences->{ $sid }->{word}->{ $word };
-      $final_answer = $self->target_sentences->{ $sid }->{word}->{ $word };
-      $answers->{ $self->target_sentences->{ $sid }->{word}->{ $word } }++;
-    }
-    $out .= "\n";
-  }
-  if ( $ambiguous ) {
-    my $count = 0;
-    my $a = $answers->{ absent };
-    my $p = $answers->{ present };
-    if ( $a > $p ) {
-      $final_answer = 'absent';
-    } elsif ( $p > $a ) {
-      $final_answer = 'present';
     } else {
-      $final_answer = 'present';
+      # "Negated in this scope: $n_scope";
+      $n_scope =~ /(\d+)\s-\s(\d+)/;
+      my @words = split /\s/, $line;
+      my $term_in_scope;
+      foreach my $c ( $1 .. $2 ) {
+	$term_in_scope = 1 if grep { $words[ $c ] =~ /$_/i } @{$self->target_words};
+      }
+      $self->target_sentence->{ $line } = 'absent' if $term_in_scope;
     }
   }
-  $final_answer ||= 'absent';
+  if ( scalar keys %{$self->target_sentence} ) {
+    my %final_answer;
+    while ( my($sentence,$answer) = each %{$self->target_sentence} ) {
+      $final_answer{ $answer }++;
+      $self->final_answer( $answer );
+    }
+    if ( scalar keys %final_answer > 1 ) {
+      $self->ambiguous( 1 ); 
+      $final_answer{ 'absent' } ||= 0;
+      $final_answer{ 'present' } ||= 0;
 
-  $self->final_answer( $final_answer );
-  $self->ambiguous( $ambiguous );
+      if ( $final_answer{ 'absent' } > $final_answer{ 'present' } ) {
+        $self->final_answer( 'absent' );
+      } elsif ( $final_answer{ 'present' } > $final_answer{ 'absent' } ) {
+        $self->final_answer( 'present' );
+      } else {
+	# There are an equal number of absent/present findings - defaulting to present
+        $self->final_answer( 'present' );
+      }
+    }
+
+  } elsif ( ! scalar keys %{$self->target_sentence} ) {
+    $self->final_answer( 'absent' );
+  }
+}
+
+
+sub debug {
+  my $self = shift;
+  my $out = "DxExtractor Debug:\n";
+  $out .= "Target Words: " . (join ', ', @{$self->target_words}) . "\n";
+  $out .= "Skip Words: " . (join ', ', @{$self->skip_words}) . "\n";
+  $out .= "Sentences:\n";
+  while ( my($sentence,$answer) = each %{$self->target_sentence} ) {
+    $out .= "$sentence\n$answer\n"; 
+    $out .= "NegEx: " . $self->negex_debug->{ $sentence } . "\n";
+  }
+  $out .= "Final Answer: " . $self->final_answer . "\n";;
+  $out .= "Ambiguous: " . ($self->ambiguous ? 'Yes' : 'No');
   return $out;
 }
 
 sub reset {
   my $self = shift;
   $self->orig_text( '' );
-  $self->results->clear if $self->results;
-  $self->target_sentences( {} );
+  $self->target_sentence( {} );
+  $self->final_answer( '' );
+  $self->ambiguous( '' );
 }
 
 1;
-__END__
 
 =head1 NAME
 
-Lingua::DxExtractor - Perl extension to perform NER and quick and dirty negation checking using Lingua::StanfordCoreNLP. 
+Lingua::DxExtractor - Perl extension to extract the presence or absence of a clinical condition from radiology reports. 
 
 =head1 SYNOPSIS
 
   use Lingua::DxExtractor;
 
   $extractor = Lingua::DxExtractor->new( {
-    words => [  qw( embolus embolism pe clot ) ],
+    target_words => [  qw( embolus embolism pe clot ) ],
     skip_words => [ qw( history indication technique nondiagnostic ) ],
   } );
 
@@ -208,11 +141,21 @@ Lingua::DxExtractor - Perl extension to perform NER and quick and dirty negation
 
 =head1 DESCRIPTION
 
-A quick and dirty Named Entity Recognition tool to be used to find diagnostic entities within clinical text. It also includes a simple attempt at finding negated terms. The extractor gives a 'final answer', 'absent' or 'present'. Also the extractor reports if it isn't sure and the answer is ambiguous. 
+A tool to be used to look for the presence or absence of a clinical condition as reported in radiology reports. The extractor reports a 'final answer', 'absent' or 'present', as well as reports whether this answer is 'ambiguous' or not.
 
 The 'use case' for this is when performing a research project with a large number of records and you need to identify a subset based on a diagnostic entity, you can use this tool to reduce the number of charts that have to be manually examined. In this 'use case' I wanted to keep the sensitivity as high as possible in order to not miss real cases.
 
-The extractor uses StanfordCoreNLP's lemmatization, POS tagging, and creation of dependencies. For a given text, sentences are looked at one by one. If one of the 'skip_words' is found then the sentence is skipped. If one of the target 'words' is found then the sentence is flagged for further examination, and the word is marked as 'present'. Each target sentence is examined for negation terms, and if so the word is marked as 'absent'. A 'final answer' for the presence of absence of the condition defined by the target 'words' is then evaluated by looking at all of the accumulated answers for all of the sentences. If there is conflict in the answer then the 'ambiguous' answer flag is marked. For these ambiguous cases, the final answer is whichever answer (absent or present) was most frequently found. In the case of a tie, the default answer is 'present' (this increases false positives but decreases false negatives -- improved sensitivity).  
+  target_words( \@words );
+
+This is a list of words that describe the clinical entity in question. All forms of the entity in question need to explicitly stated since the package is currently not using lemmatization or stemming.
+
+  skip_words( \@skip );
+
+This is a list of words that can be used to eliminate sentences in the text that might confuse the extractor. For example most radiographic reports start with a brief description of the indication for the test. This statement may state the clinical entity in question but does not mean it is present in the study (ie. Indication: to rule out pulmonary embolism). 
+
+The radiographic reports don't require textual preprocessing however clearly the selection of target_words and skip_words requires reading through reports to get a sense of what vocabulary is being used in the particular dataset that is being evaluated.
+
+Negated terms are identified using Lingua::NegEx which is a perl implementation of Wendy Chapman's NegEx algorithm.
 
 =head2 EXPORT
 
@@ -222,21 +165,25 @@ None by default.
 
 This module depends on:
 
-Lingua::StanfordCoreNLP which in turn depends on Inline::Java
+Lingua::NegEx
+
+Text::Sentence
 
 Class::MakeMethods
 
+=head1 To Do
+
+Add lemmatization or stemming to target_words so you don't have to explicitly write out all forms of words 
 =head1 AUTHOR
 
-Ed Iturrate, E<lt>ed@iturrate.comE<gt>
+Eduardp Iturrate, E<lt>ed@iturrate.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2013 by Eduardo Iturrate 
+Copyright (C) 2013 by Eduardo Iturrate
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,
 at your option, any later version of Perl 5 you may have available.
-
 
 =cut

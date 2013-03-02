@@ -6,9 +6,9 @@ WriteMakefile(
     NAME              => 'Lingua::DxExtractor',
     VERSION_FROM      => 'lib/Lingua/DxExtractor.pm', # finds $VERSION
     PREREQ_PM         => {
-	'Inline::Java' => 0.053,
+	'Text::Sentence' => 0.006,
 	'Class::MakeMethods' => 1,
-	'Lingua::StanfordCoreNLP' => 0.04,
+	'Lingua::NegEx' => 0.01,
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Lingua/DxExtractor.pm', # retrieve abstract from module

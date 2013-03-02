@@ -4,7 +4,8 @@ Revision history for Perl extension Lingua::DxExtractor.
 	- original version; created by h2xs 1.23 with options
 		-AX Lingua::DxExtractor
 0.02  Mon Feb 25 21:40 2013
-	- edited POD; added required modules to Makefile.PL; edited README; 
+	- edited POD; added required modules to Makefile.PL; edited README
 0.03  Tue Feb 26 22:00 2013
 	- process_text now runs through the whole processs; edited Makefile.PL and POD
-
+0.04  Fri Mar 01 
+	- refactored to pure perl implementation without Lingua::StanfordCoreNLP; now using Lingua::NegEx for negations
