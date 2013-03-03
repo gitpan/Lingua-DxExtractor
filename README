@@ -14,8 +14,8 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-  Lingua::StanfordCoreNLP
-  Inline::Java  - which in turn needs Java 2 SDK installed
+  Lingua::NegEx
+  Text::Sentence
   Class::MakeMethods
 
 COPYRIGHT AND LICENCE

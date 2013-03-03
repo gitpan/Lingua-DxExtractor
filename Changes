@@ -11,3 +11,5 @@ Revision history for Perl extension Lingua::DxExtractor.
 	- refactored to pure perl implementation without Lingua::StanfordCoreNLP; now using Lingua::NegEx for negations
 1.01  Fri Mar 01
 	- edited POD and cleaned up typos
+1.02  Sat Mar 02
+	- edited README and POD
