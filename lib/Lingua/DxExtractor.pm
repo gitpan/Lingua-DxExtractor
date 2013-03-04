@@ -4,7 +4,7 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 
 use Text::Sentence qw( split_sentences );
 use Lingua::NegEx;
@@ -154,11 +154,11 @@ The radiographic reports don't require textual preprocessing however clearly the
 
 Negated terms are identified using Lingua::NegEx which is a perl implementation of Wendy Chapman's NegEx algorithm.
 
-head=2 target_words( \@words );
+=head3 target_words( \@words );
 
 This is a list of words that describe the clinical entity in question. All forms of the entity in question need to explicitly stated since the package is currently not using lemmatization or stemming.
 
-head=2 skip_words( \@skip );
+=head3 skip_words( \@skip );
 
 This is a list of words that can be used to eliminate sentences in the text that might confuse the extractor. For example most radiographic reports start with a brief description of the indication for the test. This statement may state the clinical entity in question but does not mean it is present in the study (ie. Indication: to rule out pulmonary embolism).
 
@@ -178,7 +178,7 @@ Class::MakeMethods
 
 Also, see http://www.ncbi.nlm.nih.gov/pubmed/21459155 for a similar project using ConText.
 
-=head1 To Do
+=head1 TO DO
 
 1. Add lemmatization or stemming to target_words so you don't have to explicitly write out all forms of words.
 

@@ -13,3 +13,5 @@ Revision history for Perl extension Lingua::DxExtractor.
 	- edited POD and cleaned up typos
 1.02  Sat Mar 02
 	- edited README and POD
+1.03  Sun Mar 03
+	- fixed typo in POD
