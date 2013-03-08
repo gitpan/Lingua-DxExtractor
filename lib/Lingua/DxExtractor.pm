@@ -4,7 +4,7 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 use Text::Sentence qw( split_sentences );
 use Lingua::NegEx;
@@ -41,6 +41,8 @@ sub process_text {
 
 sub examine_text {
   my $self = shift;
+  my $text = $self->orig_text;
+  $text =~ s/\s+/ /g;
   my @sentences = split_sentences( $self->orig_text );
   foreach my $line ( @sentences ) {
     next if grep { $line =~ /\b$_\b/i } @{$self->skip_words};
@@ -50,17 +52,14 @@ sub examine_text {
     my $n_scope = negation_scope( $line );
     $self->negex_debug->{ $line } = $n_scope;
 
-    if ( $n_scope eq '-1' ) {
+    unless ( $n_scope ) {
       # affirmed
       $self->target_sentence->{ $line } = 'present';
-    } elsif ( $n_scope eq '-2' ) {
-      # negated 
-      $self->target_sentence->{ $line } = 'absent';
 
     } else {
       # "Negated in this scope: $n_scope";
       $n_scope =~ /(\d+)\s-\s(\d+)/;
-      my @words = split /\s/, $line;
+      my @words = ( map { s/\W//; $_; } ( split /\s/, $line ) );
       my $term_in_scope;
       foreach my $c ( $1 .. $2 ) {
 	$term_in_scope = 1 if grep { $words[ $c ] =~ /$_/i } @{$self->target_words};

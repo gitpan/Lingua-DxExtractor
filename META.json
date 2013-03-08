@@ -33,11 +33,11 @@
       "runtime" : {
          "requires" : {
             "Class::MakeMethods" : "1",
-            "Lingua::NegEx" : "0.01",
+            "Lingua::NegEx" : "0.05",
             "Text::Sentence" : "0.006"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "1.03"
+   "version" : "1.04"
 }
