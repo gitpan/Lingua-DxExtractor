@@ -4,10 +4,10 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 use Text::Sentence qw( split_sentences );
-use Lingua::NegEx;
+use Lingua::NegEx qw( negation_scope );
 
 use Class::MakeMethods (
   'Template::Hash:array' => [
@@ -35,15 +35,15 @@ sub new {
 sub process_text {
   my ($self,$text) = @_;
   $self->orig_text( $text );
-  $self->examine_text;
-  return $self->final_answer;
+  return $self->final_answer if $self->examine_text;
 }
 
 sub examine_text {
   my $self = shift;
   my $text = $self->orig_text;
+  return 0 unless $text;
   $text =~ s/\s+/ /g;
-  my @sentences = split_sentences( $self->orig_text );
+  my @sentences = split_sentences( $text );
   foreach my $line ( @sentences ) {
     next if grep { $line =~ /\b$_\b/i } @{$self->skip_words};
     next unless grep { $line =~ /\b$_\b/i } @{$self->target_words};
@@ -91,19 +91,21 @@ sub examine_text {
   } elsif ( ! scalar keys %{$self->target_sentence} ) {
     $self->final_answer( 'absent' );
   }
+  return 1;
 }
 
 sub debug {
   my $self = shift;
-  my $out = "DxExtractor Debug:\n";
-  $out .= "Target Words: " . (join ', ', @{$self->target_words}) . "\n";
-  $out .= "Skip Words: " . (join ', ', @{$self->skip_words}) . "\n";
+  my $out .= "Target Words:\n" . (join ', ', @{$self->target_words}) . "\n\n";
+  $out .= "Skip Words:\n " . (join ', ', @{$self->skip_words}) . "\n\n";
   $out .= "Sentences:\n";
+  my $c = 1;
   while ( my($sentence,$answer) = each %{$self->target_sentence} ) {
-    $out .= "$sentence\n$answer\n"; 
+    $out .= "$c) $sentence\nAnswer: $answer\n"; 
     $out .= "NegEx: " . $self->negex_debug->{ $sentence } . "\n";
+    $c++;
   }
-  $out .= "Final Answer: " . $self->final_answer . "\n";;
+  $out .= "\nFinal Answer: " . $self->final_answer . "\n";;
   $out .= "Ambiguous: " . ($self->ambiguous ? 'Yes' : 'No');
   return $out;
 }
@@ -139,8 +141,9 @@ Lingua::DxExtractor - Extract the presence or absence of a clinical condition fr
 
   $original_text = $extractor->orig_text;
   $final_answer = $extractor->final_answer;
+  $ambiguous = $extractor->ambiguous;
 
-  $extractor->reset; # start all over again
+  $extractor->reset; # clears orig_text, final_answer, target_sentence and ambiguous 
 
   
 =head1 DESCRIPTION
@@ -153,21 +156,26 @@ The radiographic reports don't require textual preprocessing however clearly the
 
 Negated terms are identified using Lingua::NegEx which is a perl implementation of Wendy Chapman's NegEx algorithm.
 
+=head1 SUBROUTINES/METHODS
+
+  new( { 
+	target_words => \@target_words,
+	skip_words => \@skip_words,
+  } );
+
 =head3 target_words( \@words );
 
 This is a list of words that describe the clinical entity in question. All forms of the entity in question need to explicitly stated since the package is currently not using lemmatization or stemming.
 
 =head3 skip_words( \@skip );
 
-This is a list of words that can be used to eliminate sentences in the text that might confuse the extractor. For example most radiographic reports start with a brief description of the indication for the test. This statement may state the clinical entity in question but does not mean it is present in the study (ie. Indication: to rule out pulmonary embolism).
+Not required. This is a list of words that can be used to eliminate sentences in the text that might confuse the extractor. For example most radiographic reports start with a brief description of the indication for the test. This statement may state the clinical entity in question but does not mean it is present in the study (ie. Indication: to rule out pulmonary embolism).
 
 =head2 EXPORT
 
 None by default.
 
-=head1 SEE ALSO
-
-This module depends on:
+=head1 DEPENDENCIES
 
 Lingua::NegEx
 
@@ -175,7 +183,11 @@ Text::Sentence
 
 Class::MakeMethods
 
-Also, see http://www.ncbi.nlm.nih.gov/pubmed/21459155 for a similar project using ConText.
+head=1 SEE ALSO
+
+http://www.ncbi.nlm.nih.gov/pubmed/21459155 for a similar project using ConText.
+
+http://www.iturrate.com/DxExtractor.html - a simple web interface to the algorithm.
 
 =head1 TO DO
 

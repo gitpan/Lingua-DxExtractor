@@ -17,3 +17,5 @@ Revision history for Perl extension Lingua::DxExtractor.
 	- fixed typo in POD
 1.04  Fri Mar 08 2013
 	- edited to use update Lingua::NegEx-0.05 output; also now doing s/\W//g; to words in sentences
+1.05  Sat Mar 09 2013
+	- edited POD; cleaned up debug(); examine_text now returns something; added link to www.iturrate.com/DxExtractor.html
