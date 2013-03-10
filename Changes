@@ -19,3 +19,7 @@ Revision history for Perl extension Lingua::DxExtractor.
 	- edited to use update Lingua::NegEx-0.05 output; also now doing s/\W//g; to words in sentences
 1.05  Sat Mar 09 2013
 	- edited POD; cleaned up debug(); examine_text now returns something; added link to www.iturrate.com/DxExtractor.html
+1.06  Sun Mar 10 2013
+	- got rid of unless, got rid of repetative logic;
+	- now using $n_scope = [ 0 , 3 ] 
+	- formatting in  pod

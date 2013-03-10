@@ -4,7 +4,7 @@ use 5.008008;
 use strict;
 use warnings;
 
-our $VERSION = '1.05';
+our $VERSION = '1.06';
 
 use Text::Sentence qw( split_sentences );
 use Lingua::NegEx qw( negation_scope );
@@ -47,21 +47,13 @@ sub examine_text {
   foreach my $line ( @sentences ) {
     next if grep { $line =~ /\b$_\b/i } @{$self->skip_words};
     next unless grep { $line =~ /\b$_\b/i } @{$self->target_words};
-
     $self->target_sentence->{ $line } = 'present';
     my $n_scope = negation_scope( $line );
-    $self->negex_debug->{ $line } = $n_scope;
-
-    unless ( $n_scope ) {
-      # affirmed
-      $self->target_sentence->{ $line } = 'present';
-
-    } else {
-      # "Negated in this scope: $n_scope";
-      $n_scope =~ /(\d+)\s-\s(\d+)/;
+    if ( $n_scope ) {
+      $self->negex_debug->{ $line } = $n_scope;
       my @words = ( map { s/\W//; $_; } ( split /\s/, $line ) );
       my $term_in_scope;
-      foreach my $c ( $1 .. $2 ) {
+      foreach my $c ( @$n_scope[0] .. @$n_scope[1] ) {
 	$term_in_scope = 1 if grep { $words[ $c ] =~ /$_/i } @{$self->target_words};
       }
       $self->target_sentence->{ $line } = 'absent' if $term_in_scope;
@@ -102,7 +94,7 @@ sub debug {
   my $c = 1;
   while ( my($sentence,$answer) = each %{$self->target_sentence} ) {
     $out .= "$c) $sentence\nAnswer: $answer\n"; 
-    $out .= "NegEx: " . $self->negex_debug->{ $sentence } . "\n";
+    $out .= "NegEx: " . $self->negex_debug->{ $sentence } . "\n" if defined $self->negex_debug->{ $sentence };
     $c++;
   }
   $out .= "\nFinal Answer: " . $self->final_answer . "\n";;
@@ -158,16 +150,13 @@ Negated terms are identified using Lingua::NegEx which is a perl implementation 
 
 =head1 SUBROUTINES/METHODS
 
-  new( { 
-	target_words => \@target_words,
-	skip_words => \@skip_words,
-  } );
+=head3 new( { target_words => \@target_words, skip_words => \@skip_words, } );
 
-=head3 target_words( \@words );
+=head4 target_words( \@words );
 
 This is a list of words that describe the clinical entity in question. All forms of the entity in question need to explicitly stated since the package is currently not using lemmatization or stemming.
 
-=head3 skip_words( \@skip );
+=head4 skip_words( \@skip );
 
 Not required. This is a list of words that can be used to eliminate sentences in the text that might confuse the extractor. For example most radiographic reports start with a brief description of the indication for the test. This statement may state the clinical entity in question but does not mean it is present in the study (ie. Indication: to rule out pulmonary embolism).
 
@@ -177,23 +166,25 @@ None by default.
 
 =head1 DEPENDENCIES
 
-Lingua::NegEx
+L<Lingua::NegEx>
 
-Text::Sentence
+L<Text::Sentence>
 
-Class::MakeMethods
+L<Class::MakeMethods>
 
-head=1 SEE ALSO
+=head1 SEE ALSO
 
-http://www.ncbi.nlm.nih.gov/pubmed/21459155 for a similar project using ConText.
+A web form to try out Lingua::DxExtractor: http://www.iturrate.com/DxExtractor.html
 
-http://www.iturrate.com/DxExtractor.html - a simple web interface to the algorithm.
+A similar project using the ConText algorithm: http://www.ncbi.nlm.nih.gov/pubmed/21459155
 
 =head1 TO DO
 
 1. Add lemmatization or stemming to target_words so you don't have to explicitly write out all forms of words.
 
 2. Add ConText support.
+
+3. Add checking for addended reports.
 
 =head1 AUTHOR
 
