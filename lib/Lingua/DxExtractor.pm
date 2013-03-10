@@ -3,8 +3,9 @@ package Lingua::DxExtractor;
 use 5.008008;
 use strict;
 use warnings;
+use Carp;
 
-our $VERSION = '1.06';
+our $VERSION = '1.07';
 
 use Text::Sentence qw( split_sentences );
 use Lingua::NegEx qw( negation_scope );
@@ -28,7 +29,7 @@ sub new {
   my $package = ref $callee || $callee;
   my $self = shift;
   bless $self, $package;
-  die unless $self->target_words;
+  croak if ! $self->target_words;
   return $self;
 }
 
@@ -36,27 +37,33 @@ sub process_text {
   my ($self,$text) = @_;
   $self->orig_text( $text );
   return $self->final_answer if $self->examine_text;
+  return;
 }
 
 sub examine_text {
   my $self = shift;
   my $text = $self->orig_text;
-  return 0 unless $text;
-  $text =~ s/\s+/ /g;
+  return if ! $text;
+  $text =~ s/\s+/ /gxms;
   my @sentences = split_sentences( $text );
   foreach my $line ( @sentences ) {
-    next if grep { $line =~ /\b$_\b/i } @{$self->skip_words};
-    next unless grep { $line =~ /\b$_\b/i } @{$self->target_words};
+    next if scalar (grep { $line =~ /\b$_\b/ixms } @{$self->skip_words});
+    next if ! scalar(grep { $line =~ /\b$_\b/ixms } @{$self->target_words});
     $self->target_sentence->{ $line } = 'present';
     my $n_scope = negation_scope( $line );
     if ( $n_scope ) {
-      $self->negex_debug->{ $line } = $n_scope;
-      my @words = ( map { s/\W//; $_; } ( split /\s/, $line ) );
+      $self->negex_debug->{ $line } = @$n_scope[0] . ' - ' . @$n_scope[1];
+      my @words = ( map { s/\W//xms; $_; } ( split /\s/xms, $line ) );
       my $term_in_scope;
       foreach my $c ( @$n_scope[0] .. @$n_scope[1] ) {
-	$term_in_scope = 1 if grep { $words[ $c ] =~ /$_/i } @{$self->target_words};
+        my @match = grep { $words[ $c ] =~ /$_/ixms } @{$self->target_words};
+	if ( scalar @match ) {
+	  $term_in_scope = 1;
+        }
       }
-      $self->target_sentence->{ $line } = 'absent' if $term_in_scope;
+      if ( $term_in_scope ) {
+        $self->target_sentence->{ $line } = 'absent';
+      }
     }
   }
   if ( scalar keys %{$self->target_sentence} ) {
@@ -66,7 +73,7 @@ sub examine_text {
       $self->final_answer( $answer );
     }
     if ( scalar keys %final_answer > 1 ) {
-      $self->ambiguous( 1 ); 
+      $self->ambiguous( 1 );
       $final_answer{ 'absent' } ||= 0;
       $final_answer{ 'present' } ||= 0;
 
@@ -79,7 +86,6 @@ sub examine_text {
         $self->final_answer( 'present' );
       }
     }
-
   } elsif ( ! scalar keys %{$self->target_sentence} ) {
     $self->final_answer( 'absent' );
   }
@@ -88,26 +94,29 @@ sub examine_text {
 
 sub debug {
   my $self = shift;
-  my $out .= "Target Words:\n" . (join ', ', @{$self->target_words}) . "\n\n";
+  my $out = "Target Words:\n" . (join ', ', @{$self->target_words}) . "\n\n";
   $out .= "Skip Words:\n " . (join ', ', @{$self->skip_words}) . "\n\n";
   $out .= "Sentences:\n";
   my $c = 1;
   while ( my($sentence,$answer) = each %{$self->target_sentence} ) {
-    $out .= "$c) $sentence\nAnswer: $answer\n"; 
-    $out .= "NegEx: " . $self->negex_debug->{ $sentence } . "\n" if defined $self->negex_debug->{ $sentence };
+    $out .= "$c) $sentence\nAnswer: $answer\n";
+    if ( defined $self->negex_debug->{ $sentence } ) {
+      $out .= 'NegEx: ' . $self->negex_debug->{ $sentence } . "\n";
+    }
     $c++;
   }
   $out .= "\nFinal Answer: " . $self->final_answer . "\n";;
-  $out .= "Ambiguous: " . ($self->ambiguous ? 'Yes' : 'No');
+  $out .= 'Ambiguous: ' . ($self->ambiguous ? 'Yes' : 'No');
   return $out;
 }
 
-sub reset {
+sub clear {
   my $self = shift;
   $self->orig_text( '' );
   $self->target_sentence( {} );
   $self->final_answer( '' );
   $self->ambiguous( '' );
+  return;
 }
 
 1;
@@ -135,7 +144,7 @@ Lingua::DxExtractor - Extract the presence or absence of a clinical condition fr
   $final_answer = $extractor->final_answer;
   $ambiguous = $extractor->ambiguous;
 
-  $extractor->reset; # clears orig_text, final_answer, target_sentence and ambiguous 
+  $extractor->clear; # clears orig_text, final_answer, target_sentence and ambiguous 
 
   
 =head1 DESCRIPTION

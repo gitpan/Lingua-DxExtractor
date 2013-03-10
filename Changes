@@ -23,3 +23,6 @@ Revision history for Perl extension Lingua::DxExtractor.
 	- got rid of unless, got rid of repetative logic;
 	- now using $n_scope = [ 0 , 3 ] 
 	- formatting in  pod
+1.07  Sun Mar 10 2013
+	- fixed mistake with negation_scope array; added return to fxns;
+	- Perl::Critic
