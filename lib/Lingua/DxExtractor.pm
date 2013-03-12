@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = '1.07';
+our $VERSION = '1.08';
 
 use Text::Sentence qw( split_sentences );
 use Lingua::NegEx qw( negation_scope );
@@ -53,16 +53,17 @@ sub examine_text {
     my $n_scope = negation_scope( $line );
     if ( $n_scope ) {
       $self->negex_debug->{ $line } = @$n_scope[0] . ' - ' . @$n_scope[1];
-      my @words = ( map { s/\W//xms; $_; } ( split /\s/xms, $line ) );
-      my $term_in_scope;
+      my @words;
+      foreach ( split /\s/xms, $line ) {
+        s/\W//xms;
+        push @words, $_;
+      }
       foreach my $c ( @$n_scope[0] .. @$n_scope[1] ) {
         my @match = grep { $words[ $c ] =~ /$_/ixms } @{$self->target_words};
 	if ( scalar @match ) {
-	  $term_in_scope = 1;
+          $self->target_sentence->{ $line } = 'absent';
+          last;
         }
-      }
-      if ( $term_in_scope ) {
-        $self->target_sentence->{ $line } = 'absent';
       }
     }
   }
@@ -134,7 +135,10 @@ Lingua::DxExtractor - Extract the presence or absence of a clinical condition fr
     skip_words => [ qw( history indication technique nondiagnostic ) ],
   } );
 
-  $text = 'Indication: To rule out pulmonary embolism.\nFindings: There is no evidence of vascular filling defect...\n";
+  $text = <<END;
+  Indication: To rule out pulmonary embolism. Findings: There is no
+  evidence of vascular filling defect to the subsegmental level...
+  END
 
   $final_answer = $extractor->process_text( $text ); # 'absent' or 'present'
   $is_final_answer_ambiguous = $extractor->ambiguous; # 1 or 0

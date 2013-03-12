@@ -21,4 +21,4 @@ requires:
   Class::MakeMethods: 1
   Lingua::NegEx: 0.05
   Text::Sentence: 0.006
-version: 1.07
+version: 1.08

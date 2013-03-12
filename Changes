@@ -26,3 +26,6 @@ Revision history for Perl extension Lingua::DxExtractor.
 1.07  Sun Mar 10 2013
 	- fixed mistake with negation_scope array; added return to fxns;
 	- Perl::Critic
+1.08  Mon Mar 11 2013	
+	- got rid of complicated map, decreased nested loops;
+	- changed width of sample text in pod.
